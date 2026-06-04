@@ -1,4 +1,4 @@
-const API_URL = "http://127.0.0.1:8000/api/trips/search";
+const API_URL = "https://travel-ai-yl2y.onrender.com/api/trips/search";
 
 const form = document.getElementById("searchForm");
 const demoButton = document.getElementById("demoButton");
