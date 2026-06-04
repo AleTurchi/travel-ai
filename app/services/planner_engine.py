@@ -48,14 +48,22 @@ def normalize_airport_codes(codes):
 
 
 def build_route(origin, candidate_cities, final_destination):
+    origin = origin.strip().upper()
+    final_destination = final_destination.strip().upper()
     stops = normalize_airport_codes(candidate_cities)
 
-    return [
-        origin.strip().upper(),
-        *stops,
-        final_destination.strip().upper(),
-        origin.strip().upper()
+    route = [
+        origin,
+        *stops
     ]
+
+    if final_destination and final_destination != origin and final_destination not in route:
+        route.append(final_destination)
+
+    if route[-1] != origin:
+        route.append(origin)
+
+    return route
 
 
 def build_leg_dates(start_date: date, end_date: date, number_of_legs: int):
