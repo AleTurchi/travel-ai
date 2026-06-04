@@ -1,4 +1,4 @@
-from app.services.planner_engine import generate_itineraries
+from app.services.planner_engine import MAX_MANUAL_STOPS, generate_itineraries
 
 
 def search_trip(request):
@@ -16,7 +16,17 @@ def search_trip(request):
         return {
             "status": "INVALID_INPUT",
             "found_valid_solution": False,
-            "ai_summary": "Devi indicare almeno una città candidata.",
+            "ai_summary": "Devi indicare almeno una destinazione intermedia.",
+            "itineraries": [],
+            "cheapest_found_price": None,
+            "budget_difference": None
+        }
+
+    if len(request.candidate_cities) > MAX_MANUAL_STOPS:
+        return {
+            "status": "INVALID_INPUT",
+            "found_valid_solution": False,
+            "ai_summary": f"Puoi indicare al massimo {MAX_MANUAL_STOPS} destinazioni intermedie.",
             "itineraries": [],
             "cheapest_found_price": None,
             "budget_difference": None
@@ -44,8 +54,9 @@ def search_trip(request):
             "status": "NO_ROUTES_FOUND",
             "found_valid_solution": False,
             "ai_summary": (
-                "Non ho trovato voli disponibili per costruire un itinerario "
-                "con le tratte e le date selezionate."
+                "Non ho trovato voli disponibili per costruire l'itinerario "
+                "con le tratte e le date selezionate. Prova a ridurre il numero "
+                "di tappe o a cambiare l'ordine degli aeroporti."
             ),
             "itineraries": [],
             "cheapest_found_price": None,
@@ -65,8 +76,8 @@ def search_trip(request):
             "status": "SUCCESS",
             "found_valid_solution": True,
             "ai_summary": (
-                "Ho trovato almeno una soluzione compatibile con il budget. "
-                "Le opzioni sono ordinate dalla più economica."
+                "Ho costruito un itinerario che include tutte le destinazioni "
+                "intermedie indicate, nell'ordine inserito."
             ),
             "itineraries": ordered,
             "cheapest_found_price": cheapest.total_price,
@@ -77,9 +88,8 @@ def search_trip(request):
         "status": "ONLY_OVER_BUDGET",
         "found_valid_solution": False,
         "ai_summary": (
-            f"Ho trovato alcune soluzioni, ma nessuna rientra nel budget. "
-            f"La più economica costa {cheapest.total_price}€, cioè "
-            f"{difference}€ sopra il budget."
+            f"Ho costruito un itinerario completo, ma supera il budget. "
+            f"Costa {cheapest.total_price}€, cioè {difference}€ sopra il budget."
         ),
         "itineraries": ordered,
         "cheapest_found_price": cheapest.total_price,
