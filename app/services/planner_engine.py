@@ -1,12 +1,13 @@
 from datetime import date, timedelta
-
 from itertools import product
-from app.config.airports import ANYWHERE_TEST, AIRPORT_GROUPS, COUNTRY_GROUPS
 
+from app.config.airports import ANYWHERE_TEST, AIRPORT_GROUPS, COUNTRY_GROUPS
 from app.providers.serpapi_flight_provider import search_flights
 from app.schemas.trip_schema import Itinerary
 
+
 MAX_MANUAL_STOPS = 7
+MAX_ROUTE_VARIANTS = 50
 
 
 def classify_trip(days_between_flights):
@@ -50,6 +51,61 @@ def normalize_airport_codes(codes):
     return normalized
 
 
+def remove_duplicates(values):
+    result = []
+
+    for value in values:
+        if value not in result:
+            result.append(value)
+
+    return result
+
+
+def expand_location(value):
+    normalized = value.strip().upper()
+
+    if normalized == "ANYWHERE":
+        return ANYWHERE_TEST
+
+    if normalized in AIRPORT_GROUPS:
+        return AIRPORT_GROUPS[normalized]
+
+    if normalized in COUNTRY_GROUPS:
+        airports = []
+
+        for city in COUNTRY_GROUPS[normalized]:
+            airports.extend(expand_location(city))
+
+        return remove_duplicates(airports)
+
+    return [normalized]
+
+
+def expand_route_variants(candidate_cities, max_variants=MAX_ROUTE_VARIANTS):
+    expanded_steps = []
+
+    for city in candidate_cities:
+        expanded = expand_location(city)
+
+        if not expanded:
+            continue
+
+        expanded_steps.append(expanded)
+
+    if not expanded_steps:
+        return [[]]
+
+    variants = []
+
+    for combination in product(*expanded_steps):
+        variants.append(list(combination))
+
+        if len(variants) >= max_variants:
+            break
+
+    return variants
+
+
 def build_route(origin, candidate_cities, final_destination):
     origin = origin.strip().upper()
     final_destination = final_destination.strip().upper()
@@ -70,14 +126,6 @@ def build_route(origin, candidate_cities, final_destination):
 
 
 def build_leg_dates(start_date: date, end_date: date, number_of_legs: int):
-    """
-    Crea una data di partenza per ogni tratta.
-
-    Esempio con rotta FCO -> PMI -> BCN -> AMS -> FCO:
-    - tratta 1: start_date
-    - tratte intermedie: distribuite tra start_date ed end_date
-    - ultima tratta: end_date
-    """
     if number_of_legs <= 1:
         return [start_date]
 
@@ -96,19 +144,9 @@ def build_leg_dates(start_date: date, end_date: date, number_of_legs: int):
     return dates
 
 
-def generate_itineraries(request):
-    candidate_cities = normalize_airport_codes(request.candidate_cities)
-
-    if len(candidate_cities) > MAX_MANUAL_STOPS:
-        return []
-
-    route = build_route(
-        request.origin,
-        candidate_cities,
-        request.final_destination
-    )
-
+def build_itinerary(request, route):
     number_of_legs = len(route) - 1
+
     leg_dates = build_leg_dates(
         request.start_date,
         request.end_date,
@@ -122,6 +160,9 @@ def generate_itineraries(request):
         destination = route[index + 1]
         departure_date = leg_dates[index]
 
+        if origin == destination:
+            return None
+
         offers = search_flights(
             origin,
             destination,
@@ -129,7 +170,7 @@ def generate_itineraries(request):
         )
 
         if not offers:
-            return []
+            return None
 
         cheapest_offer = min(
             offers,
@@ -159,7 +200,7 @@ def generate_itineraries(request):
         average_days_between_flights
     )
 
-    itinerary = Itinerary(
+    return Itinerary(
         cities=route,
         flights=selected_flights,
         total_price=total_price,
@@ -169,4 +210,29 @@ def generate_itineraries(request):
         budget_difference=budget_difference
     )
 
-    return [itinerary]
+
+def generate_itineraries(request):
+    candidate_cities = normalize_airport_codes(request.candidate_cities)
+
+    if len(candidate_cities) > MAX_MANUAL_STOPS:
+        return []
+
+    route_variants = expand_route_variants(candidate_cities)
+
+    itineraries = []
+
+    for route_variant in route_variants:
+        route = build_route(
+            request.origin,
+            route_variant,
+            request.final_destination
+        )
+
+        itinerary = build_itinerary(request, route)
+
+        if itinerary is not None:
+            itineraries.append(itinerary)
+
+    itineraries.sort(key=lambda itinerary: itinerary.total_price)
+
+    return itineraries[:10]
