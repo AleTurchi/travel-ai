@@ -1,5 +1,8 @@
 from datetime import date, timedelta
 
+from itertools import product
+from app.config.airports import ANYWHERE_TEST, AIRPORT_GROUPS, COUNTRY_GROUPS
+
 from app.providers.serpapi_flight_provider import search_flights
 from app.schemas.trip_schema import Itinerary
 
