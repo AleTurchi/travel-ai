@@ -151,7 +151,7 @@ AIRPORT_GROUPS = {
     "COPENHAGEN": ["CPH", "MMX"],
 
     # Altri
-    "VIENNA": ["VIE", "BTS"],,
+    "VIENNA": ["VIE", "BTS"],
 
     "ISTANBUL": ["IST", "SAW"],
 
@@ -490,9 +490,9 @@ COUNTRY_GROUPS = {
     ],
     
     "SVIZZERA": [
-    "ZURIGO",
-    "GINEVRA",
-    "BASILEA",
+        "ZURIGO",
+        "GINEVRA",
+        "BASILEA",
     ],
     "SWITZERLAND": [
         "ZURIGO",
